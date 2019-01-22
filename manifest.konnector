@@ -1,0 +1,78 @@
+{
+  "version": "1.0.0",
+  "name": "Suitetude connector",
+  "type": "konnector",
+  "language": "node",
+  "icon": "icon.png",
+  "slug": "SuitEtude",
+  "source": "git://github.com/konnectors/suitetudes.git",
+  "editor": "Marc Polycarpe",
+  "vendor_link": "https://www.suitetudes.com/",
+  "categories": ["other"],
+  "fields": {
+    "login": {
+      "type": "text"
+    },
+    "password": {
+      "type": "password"
+    },
+    "advancedFields": {
+      "folderPath": {
+        "advanced": true,
+        "isRequired": false
+      }
+    }
+  },
+  "data_types": [
+    "bill"
+  ],
+  "screenshots": [],
+  "permissions": {
+    "bank operations": {
+      "type": "io.cozy.bank.operations"
+    },
+    "bills": {
+      "type": "io.cozy.bills"
+    },
+    "files": {
+      "type": "io.cozy.files"
+    },
+    "accounts": {
+      "type": "io.cozy.accounts",
+      "verbs": ["GET"]
+    }
+  },
+  "developer": {
+    "name": "Cozy Cloud",
+    "url": "https://cozy.io"
+  },
+  "langs": ["fr", "en"],
+  "locales": {
+    "fr": {
+      "short_description": "Connecteur SuitEtudes",
+      "long_description": "Ce connecteur récupère la liste des factures de votre espace propriétaire",
+      "permissions": {
+        "files": {
+          "description": "Utilisé pour sauvegarder les factures"
+        },
+        "accounts": {
+          "description": "Utilisé pour obtenir les données du compte"
+        }
+      }
+    },
+    "en": {
+      "short_description": "SuitEtudes Connector",
+      "long_description": "This connector fetches a list of bills from your owner account",
+      "permissions": {
+        "files": {
+          "description": "Required to save the bills"
+        },
+        "accounts": {
+          "description": "Required to get the account's data"
+        }
+      }
+    }
+  },
+  "banksTransactionRegExp": "\\bsuitetudes\\b",
+  "manifest_version": "2"
+}
