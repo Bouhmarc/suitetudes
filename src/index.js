@@ -1,52 +1,60 @@
 const {
-  BaseKonnector,
+  CookieKonnector,
   requestFactory,
   signin,
   scrape,
   saveFiles,
   log
 } = require('cozy-konnector-libs')
-const request = requestFactory({
-  // the debug mode shows all the details about http request and responses. Very useful for
-  // debugging but very verbose. That is why it is commented out by default
-  //debug: true,
-  // activates [cheerio](https://cheerio.js.org/) parsing on each page
-  cheerio: true,
-  // If cheerio is activated do not forget to deactivate json parsing (which is activated by
-  // default in cozy-konnector-libs
-  json: false,
-  // this allows request-promise to keep cookies between requests
-  jar: true
-})
+const url = require('url')
 
-const baseUrl = 'http://proprietaires.suitetudes.com/Accueil.aspx'
+const baseUrl = 'https://proprietaires.suitetudes.com/fr'
 var $
-var fields
-module.exports = new BaseKonnector(start)
 
-// The start function is run by the BaseKonnector instance only when it got all the account
-// information (fields). When you run this connector yourself in "standalone" mode or "dev" mode,
-// the account information come from ./konnector-dev-config.json file
-async function start(fieldslocal) {
-  fields = fieldslocal
-  log('info', 'Authenticating ...')
-  await authenticate(fields.login, fields.password)
-  log('info', 'Successfully logged in')
-  // The BaseKonnector instance expects a Promise as return of the function
-  log('info', 'Fetching the contracts')
-  var documents = await fetchDocuments()
+class SuiteEtudeConnector extends CookieKonnector {
+  constructor()
+  {
+     super()
+     
+     this.request = requestFactory({
+      // the debug mode shows all the details about http request and responses. Very useful for
+      // debugging but very verbose. That is why it is commented out by default
+      //debug: true,
+      // activates [cheerio](https://cheerio.js.org/) parsing on each page
+      cheerio: true,
+      // If cheerio is activated do not forget to deactivate json parsing (which is activated by
+      // default in cozy-konnector-libs
+      json: false,
+      // this allows request-promise to keep cookies between requests
+      jar: true
+    })
+  }
 
-  log('info', 'Saving data to Cozy')
-  await saveFiles(documents, fields, {
-    timeout: Date.now() + 300 * 1000
-  })
-}
+  testSession() {
+    return (this._jar.length > 0)
 
-// this shows authentication using the [signin function](https://github.com/konnectors/libs/blob/master/packages/cozy-konnector-libs/docs/api.md#module_signin)
+  }
+
+  async fetch(fields)
+  {
+    log('info', 'Authenticating ...')
+    await this.authenticate(fields.login, fields.password)
+    log('info', 'Successfully logged in')
+    // The BaseKonnector instance expects a Promise as return of the function
+    log('info', 'Fetching the contracts')
+    var documents = await this.fetchDocuments()
+  
+    log('info', 'Saving data to Cozy')
+    await saveFiles(documents, fields, {
+      timeout: Date.now() + 300 * 1000
+    })  
+  }
+
+  // this shows authentication using the [signin function](https://github.com/konnectors/libs/blob/master/packages/cozy-konnector-libs/docs/api.md#module_signin)
 // even if this in another domain here, but it works as an example
-function authenticate(username, password) {
+ authenticate(username, password) {
   return signin({
-    url: `http://proprietaires.suitetudes.com/fr/Accueil.aspx`,
+    url: `https://proprietaires.suitetudes.com/fr/Accueil.aspx`,
     formSelector: '#form2',
     formData: {
       Connection1$lgnUser$UserName: username,
@@ -68,17 +76,16 @@ function authenticate(username, password) {
   })
 }
 
-async function fetchDocuments() {
+
+async fetchDocuments() {
   var documents = []
 
   // recupere les factures
-  documents = await fetchFactures()
-
-  log('info', JSON.stringify(documents))
+  documents = await this.fetchFactures()
 
   return documents
 }
-function parseFactures($) {
+async parseFactures($) {
   var sNumContrat = $(
     '#ctl00_MainContent_LoyersFactures_ddlListBail>option[selected="selected"]'
   )[0].attribs.value
@@ -114,7 +121,8 @@ function parseFactures($) {
   )
   return docs.map(doc => ({
     ...doc,
-    date: normalizeDate(doc.date),
+    date: this.normalizeDate(doc.date),
+    filename: this.parseTitle(doc.fileurl),
     contract: sNumContrat,
     vendor: 'SuiteEtude',
     metadata: {
@@ -126,19 +134,29 @@ function parseFactures($) {
     }
   }))
 }
-function normalizeDate(date) {
+parseTitle (sURL)
+{
+  var MonUrl = new URL(sURL);
+  
+  log('info', JSON.stringify(MonUrl))
+
+  //log('info',MonUrl.searchParams.get('check'))
+  //return 'test'
+  return MonUrl.searchParams.get('check')
+}
+normalizeDate(date) {
   const [day, month, year] = date.split('/')
   return new Date(`${year}-${month}-${day}`)
 }
 
-async function fetchFactures() {
+async fetchFactures() {
   // on fait la premiere requete pour recuperer les parametres
-  $ = await request('http://proprietaires.suitetudes.com/fr/Loyers.aspx')
+  $ = await this.request('https://proprietaires.suitetudes.com/fr/Loyers.aspx')
 
   // On affiche la liste des factures
   var options = {
     method: 'POST',
-    uri: 'http://proprietaires.suitetudes.com/fr/Loyers.aspx',
+    uri: 'https://proprietaires.suitetudes.com/fr/Loyers.aspx',
     formselector: '',
     form: {
       __VIEWSTATE: $('#__VIEWSTATE')[0].attribs.value,
@@ -153,7 +171,7 @@ async function fetchFactures() {
   }
 
   // Envoie la requete en post
-  $ = await request(options)
+  $ = await this.request(options)
   // Recupere la liste des factures
   var tabFactures = $('#ctl00_MainContent_LoyersFactures_ddlListBail>option')
 
@@ -163,7 +181,7 @@ async function fetchFactures() {
     // fait la requete pour recuperer les factures de ce contrat
     options = {
       method: 'POST',
-      uri: 'http://proprietaires.suitetudes.com/fr/Loyers.aspx',
+      uri: 'https://proprietaires.suitetudes.com/fr/Loyers.aspx',
       formselector: '',
       form: {
         __VIEWSTATE: $('#__VIEWSTATE')[0].attribs.value,
@@ -178,12 +196,23 @@ async function fetchFactures() {
     }
 
     // recupere la page
-    $ = await request(options)
+    $ = await this.request(options)
     // recupere les factures de cette page
-    var docs = await parseFactures($)
+    var docs = await this.parseFactures($)
     documents.push(...docs)
     // On sauve au fur et a mesure, sinon, il y a certains documents
   }
 
   return documents
 }
+
+
+
+}
+
+
+
+
+const connector = new SuiteEtudeConnector()
+
+connector.run()
